@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  /* 全体の箱のデザイン */
+  .dx-omikuji-box {
+    font-family: 'Segoe UI', 'Meiryo', sans-serif;
+    text-align: center;
+    border: 1px solid #d1d1d1;
+    border-radius: 12px;
+    padding: 30px 20px;
+    background-color: #ffffff;
+    max-width: 450px;
+    margin: 0 auto;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+
+  /* タイトル */
+  .omikuji-title {
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: #323130;
+    font-size: 1.5em;
+    border-bottom: 2px solid #0078d4;
+    display: inline-block;
+    padding-bottom: 5px;
+  }
+
+  /* 結果の文字 */
+  .omikuji-result {
+    font-size: 2.2em;
+    font-weight: bold;
+    color: #d13438;
+    margin: 10px 0;
+    min-height: 1.2em;
+    animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+
+  /* 説明文 */
+  .omikuji-desc {
+    font-size: 1em;
+    color: #605e5c;
+    margin-bottom: 15px;
+    line-height: 1.6;
+  }
+
+  /* ラッキーキーの装飾 */
+  .lucky-key-box {
+    background: #f3f2f1;
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 15px;
+    border-left: 5px solid #0078d4;
+    text-align: left;
+    font-size: 0.95em;
+  }
+  .key-code {
+    font-weight: bold;
+    font-family: Consolas, monospace;
+    color: #0078d4;
+    font-size: 1.2em;
+    display: block;
+    margin-bottom: 5px;
+  }
+
+  /* 画像ボタン */
+  .img-btn-container {
+    margin-top: 25px;
+    display: flex;
+    justify-content: center;
+  }
+  
+  #btnImg {
+    cursor: pointer;
+    transition: all 0.2s ease;
+    max-width: 100%;
+    height: auto;
+    transform: translateY(0);
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2));
+  }
+
+  #btnImg:hover {
+    transform: translateY(-2px);
+    filter: drop-shadow(0 6px 8px rgba(0,0,0,0.25));
+    opacity: 0.95;
+  }
+
+  #btnImg:active {
+    transform: translateY(2px);
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.2));
+  }
+
+  #btnImg.disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+    filter: grayscale(100%);
+    pointer-events: none;
+    transform: none;
+  }
+
+  /* ローディング */
+  .loader-container {
+    display: none;
+    margin: 20px 0;
+    min-height: 150px;
+    padding-top: 40px;
+  }
+  .loader {
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #a4373a;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 10px auto;
+  }
+  .loading-text {
+    font-size: 0.9em;
+    color: #a4373a;
+    font-weight: bold;
+  }
+
+  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  @keyframes popIn { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
+  
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div class="dx-omikuji-box">
+  
+  <h3 class="omikuji-title">🔮 本日のDXおみくじ</h3>
+  
+  <div id="loaderArea" class="loader-container">
+    <div class="loader"></div>
+    <div id="loadingMsg" class="loading-text">クラウドに接続中...</div>
+  </div>
+
+  <div id="resultContainer" class="hidden">
+    <div id="resultRank" class="omikuji-result"></div>
+    <div id="resultDesc" class="omikuji-desc"></div>
+    <div class="lucky-key-box">
+       <span style="font-size:0.8em; color:#666;">💡 今日のラッキーショートカット</span><br>
+       <span id="resultKey" class="key-code"></span>
+       <span id="keyDesc"></span>
+    </div>
+  </div>
+
+  <div id="initialMsg" class="omikuji-desc" style="margin-top: 20px;">
+    以下のボタンをクリックして<br>今日のDX運勢を占いましょう
+  </div>
+
+  <div class="img-btn-container">
+    <img 
+      src="omikuji200.png" 
+      id="btnImg" 
+      onclick="startOmikuji()" 
+      alt="おみくじを引く"
+      width="250"
+    >
+  </div>
+</div>
+
+<script>
+  // ▼▼▼ 設定エリア：ここを変えると確率が変わります ▼▼▼
+  // weight（重み）の数字が大きいほど出やすくなります。
+  // 現在の設定：合計100になるようにしていますが、必須ではありません。
+  const fortunes = [
+    { weight: 10, rank: "大吉 ✨", text: "絶好調！作成中のフローが驚くほどスムーズに動きます。今日は定時退社で美味しいご飯を！", key: "Win + D", keyDesc: "デスクトップを表示" },
+    { weight: 25, rank: "中吉 😊", text: "自動化の波が来ています。新しいツールに挑戦しても、失敗即リカバリーで安心。", key: "Ctrl + Z", keyDesc: "直前の操作を元に戻す" },
+    { weight: 35, rank: "小吉 ☁️", text: "マルチタスク日和。でもブラウザのタブは開きすぎないように整理整頓を。", key: "Alt + Tab", keyDesc: "アプリ/ウィンドウの切替" },
+    { weight: 20, rank: "末吉 🌀", text: "ネットワークの乱れアリ？予期せぬ再起動に備えて、こまめな保存が吉。", key: "Ctrl + S", keyDesc: "上書き保存" },
+    { weight: 8,  rank: "凶 ⚡", text: "パスワード期限切れやロック忘れに注意。セキュリティ意識を高めれば運気回復！", key: "Win + L", keyDesc: "画面をロック" },
+    { weight: 2,  rank: "レア吉 🚀", text: "閃きの予感！誰も思いつかなかった業務改善案が降りてくるかも。", key: "Win + Shift + S", keyDesc: "画面の一部を切り取り(スクショ)" }
+  ];
+  // ▲▲▲ 設定エリア終了 ▲▲▲
+
+  const loadingMessages = [
+    "クラウドに接続中...", "AIが運勢を分析中...", "ビッグデータを照合中...", "サーバー応答待ち..."
+  ];
+
+  function startOmikuji() {
+    const btnImg = document.getElementById("btnImg");
+    const loader = document.getElementById("loaderArea");
+    const resultContainer = document.getElementById("resultContainer");
+    const initialMsg = document.getElementById("initialMsg");
+    const loadingText = document.getElementById("loadingMsg");
+
+    if (btnImg.classList.contains("disabled")) return;
+
+    btnImg.classList.add("disabled");
+    initialMsg.style.display = "none";
+    resultContainer.classList.add("hidden");
+    loader.style.display = "block";
+    
+    let msgIndex = 0;
+    const msgInterval = setInterval(() => {
+      loadingText.innerText = loadingMessages[msgIndex % loadingMessages.length];
+      msgIndex++;
+    }, 400);
+
+    setTimeout(() => {
+      clearInterval(msgInterval);
+      showResult();
+      loader.style.display = "none";
+      resultContainer.classList.remove("hidden");
+      btnImg.classList.remove("disabled");
+    }, 2000);
+  }
+
+  function showResult() {
+    // 重み付け抽選ロジック
+    // 1. 重みの合計を計算
+    let totalWeight = 0;
+    for (let i = 0; i < fortunes.length; i++) {
+      totalWeight += fortunes[i].weight;
+    }
+
+    // 2. 0～合計値の間でランダムな数を決定
+    let random = Math.floor(Math.random() * totalWeight);
+
+    // 3. ランダムな数がどの範囲にあるか判定して結果を決定
+    let result = fortunes[0];
+    for (let i = 0; i < fortunes.length; i++) {
+      if (random < fortunes[i].weight) {
+        result = fortunes[i];
+        break;
+      }
+      random -= fortunes[i].weight;
+    }
+
+    // 画面表示
+    document.getElementById("resultRank").innerText = result.rank;
+    document.getElementById("resultDesc").innerText = result.text;
+    document.getElementById("resultKey").innerText = result.key;
+    document.getElementById("keyDesc").innerText = "(" + result.keyDesc + ")";
+    
+    // 色分け
+    const rankElem = document.getElementById("resultRank");
+    if(result.rank.includes("大吉")) {
+      rankElem.style.color = "#e0ad08"; 
+    } else if(result.rank.includes("凶")) {
+      rankElem.style.color = "#333";
+    } else {
+      rankElem.style.color = "#d13438";
+    }
+  }
+</script>
+
+</body>
