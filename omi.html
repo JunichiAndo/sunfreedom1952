@@ -142,7 +142,7 @@
     <div id="resultRank" class="omikuji-result"></div>
     <div id="resultDesc" class="omikuji-desc"></div>
     <div class="lucky-key-box">
-       <span style="font-size:0.8em; color:#666;">💡 今日のラッキーショートカット</span><br>
+       <span style="font-size:0.8em; color:#666;">💡 今日のラッキー<span id="resultTitle"></span></span><br>
        <span id="resultKey" class="key-code"></span>
        <span id="keyDesc"></span>
     </div>
@@ -164,24 +164,12 @@
 </div>
 
 <script>
-  // ▼▼▼ 設定エリア：ここを変えると確率が変わります ▼▼▼
-  // weight（重み）の数字が大きいほど出やすくなります。
-  // 現在の設定：合計100になるようにしていますが、必須ではありません。
-  const fortunes = [
-    { weight: 10, rank: "大吉 ✨", text: "絶好調！作成中のフローが驚くほどスムーズに動きます。今日は定時退社で美味しいご飯を！", key: "Win + D", keyDesc: "デスクトップを表示" },
-    { weight: 25, rank: "中吉 😊", text: "自動化の波が来ています。新しいツールに挑戦しても、失敗即リカバリーで安心。", key: "Ctrl + Z", keyDesc: "直前の操作を元に戻す" },
-    { weight: 35, rank: "小吉 ☁️", text: "マルチタスク日和。でもブラウザのタブは開きすぎないように整理整頓を。", key: "Alt + Tab", keyDesc: "アプリ/ウィンドウの切替" },
-    { weight: 20, rank: "末吉 🌀", text: "ネットワークの乱れアリ？予期せぬ再起動に備えて、こまめな保存が吉。", key: "Ctrl + S", keyDesc: "上書き保存" },
-    { weight: 8,  rank: "凶 ⚡", text: "パスワード期限切れやロック忘れに注意。セキュリティ意識を高めれば運気回復！", key: "Win + L", keyDesc: "画面をロック" },
-    { weight: 2,  rank: "レア吉 🚀", text: "閃きの予感！誰も思いつかなかった業務改善案が降りてくるかも。", key: "Win + Shift + S", keyDesc: "画面の一部を切り取り(スクショ)" }
-  ];
-  // ▲▲▲ 設定エリア終了 ▲▲▲
-
   const loadingMessages = [
     "クラウドに接続中...", "AIが運勢を分析中...", "ビッグデータを照合中...", "サーバー応答待ち..."
   ];
 
-  function startOmikuji() {
+  // async関数に変更し、内部でJSONファイルを取得します
+  async function startOmikuji() {
     const btnImg = document.getElementById("btnImg");
     const loader = document.getElementById("loaderArea");
     const resultContainer = document.getElementById("resultContainer");
@@ -201,16 +189,40 @@
       msgIndex++;
     }, 400);
 
-    setTimeout(() => {
+    try {
+      // ▼ ここがポイント！ omikuji.json を読み込みます ▼
+      // ※末尾の ?t=... は、ブラウザのキャッシュ（古いデータ）を読み込まないためのおまじないです
+      const response = await fetch('omikuji.json?t=' + new Date().getTime());
+      
+      if (!response.ok) {
+        throw new Error("ネットワークエラー");
+      }
+      
+      const fortunesData = await response.json();
+
+      // 演出のため、最低でも2秒間はローディング画面を見せます
+      setTimeout(() => {
+        clearInterval(msgInterval);
+        showResult(fortunesData); // 読み込んだデータを渡す
+        loader.style.display = "none";
+        resultContainer.classList.remove("hidden");
+        btnImg.classList.remove("disabled");
+      }, 2000);
+
+    } catch (error) {
+      console.error("おみくじデータの取得に失敗しました", error);
       clearInterval(msgInterval);
-      showResult();
-      loader.style.display = "none";
-      resultContainer.classList.remove("hidden");
-      btnImg.classList.remove("disabled");
-    }, 2000);
+      loadingText.innerText = "通信エラーが発生しました";
+      setTimeout(() => {
+         loader.style.display = "none";
+         initialMsg.style.display = "block";
+         btnImg.classList.remove("disabled");
+      }, 2000);
+    }
   }
 
-  function showResult() {
+  // 引数 (fortunes) を受け取るように変更
+  function showResult(fortunes) {
     // 重み付け抽選ロジック
     // 1. 重みの合計を計算
     let totalWeight = 0;
@@ -236,6 +248,7 @@
     document.getElementById("resultDesc").innerText = result.text;
     document.getElementById("resultKey").innerText = result.key;
     document.getElementById("keyDesc").innerText = "(" + result.keyDesc + ")";
+    document.getElementById("resultTitle").innerText = result.title;
     
     // 色分け
     const rankElem = document.getElementById("resultRank");
